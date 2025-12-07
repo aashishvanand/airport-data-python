@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="airports-py",
-    version="2.0.0",
+    version="3.0.0",
     packages=find_packages(),
     install_requires=[],
     author="Aashish Vivekanand",
@@ -30,6 +30,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
@@ -61,6 +62,14 @@ setup(
         "navigation",
     ],
     python_requires=">=3.6",
+    extras_require={
+        "dev": [
+            "pytest>=7.0.0",
+            "pytest-cov>=4.0.0",
+            "build>=1.0.0",
+            "twine>=4.0.0",
+        ],
+    },
     include_package_data=True,
     package_data={
         "airports": ["data/*.gz", "data/*.json"],
