@@ -246,7 +246,7 @@ class TestAirportData(unittest.TestCase):
         result = airport_data.get_airport_by_iata("ZZZ")
         self.assertEqual(result, [])
         
-        result = airport_data.get_airport_by_icao("ZZZZ")
+        result = airport_data.get_airport_by_icao("QQQQ")
         self.assertEqual(result, [])
         
         result = airport_data.get_airport_by_country_code("ZZ")

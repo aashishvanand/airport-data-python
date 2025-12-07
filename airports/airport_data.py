@@ -395,7 +395,7 @@ def find_airports(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
                 
                 # Convert string "yes"/"no" to boolean if needed
                 if isinstance(scheduled_service, str):
-                    actual_value = scheduled_service.lower() == 'yes'
+                    actual_value = scheduled_service.upper() == 'TRUE'
                 else:
                     actual_value = bool(scheduled_service)
                 
@@ -464,3 +464,353 @@ def get_airport_links(code: str) -> Optional[Dict[str, Optional[str]]]:
         'radarbox': airport.get('radarbox_url'),
         'flightaware': airport.get('flightaware_url'),
     }
+
+def get_airport_stats_by_country(country_code: str) -> Dict[str, Any]:
+    """
+    Gets comprehensive statistics about airports in a specific country.
+    
+    Args:
+        country_code: 2-letter country code
+    
+    Returns:
+        Dictionary containing statistics
+    """
+    airports_list = get_airport_by_country_code(country_code)
+    
+    stats = {
+        'total': len(airports_list),
+        'by_type': {
+            'large_airport': 0,
+            'medium_airport': 0,
+            'small_airport': 0,
+            'heliport': 0,
+            'seaplane_base': 0,
+            'closed': 0,
+            'balloonport': 0
+        },
+        'with_scheduled_service': 0,
+        'average_runway_length': 0,
+        'average_elevation': 0,
+        'timezones': set()
+    }
+    
+    total_runway_length = 0
+    runway_count = 0
+    total_elevation = 0
+    elevation_count = 0
+    
+    for airport in airports_list:
+        # Type stats
+        atype = airport.get('type')
+        if atype in stats['by_type']:
+            stats['by_type'][atype] += 1
+            
+        # Scheduled service
+        scheduled = airport.get('scheduled_service')
+        if scheduled == 'TRUE' or scheduled is True:
+            stats['with_scheduled_service'] += 1
+            
+        # Runway length
+        try:
+            rl = airport.get('runway_length')
+            if rl:
+                total_runway_length += float(rl)
+                runway_count += 1
+        except (ValueError, TypeError):
+            pass
+            
+        # Elevation
+        try:
+            el = airport.get('elevation_ft')
+            if el is not None:
+                total_elevation += float(el)
+                elevation_count += 1
+        except (ValueError, TypeError):
+            pass
+            
+        # Timezone
+        tz = airport.get('time')
+        if tz:
+            stats['timezones'].add(tz)
+            
+    if runway_count > 0:
+        stats['average_runway_length'] = total_runway_length / runway_count
+        
+    if elevation_count > 0:
+        stats['average_elevation'] = total_elevation / elevation_count
+        
+    stats['timezones'] = list(stats['timezones'])
+    return stats
+
+def get_airport_stats_by_continent(continent_code: str) -> Dict[str, Any]:
+    """
+    Gets comprehensive statistics about airports on a specific continent.
+    
+    Args:
+        continent_code: 2-letter continent code
+    
+    Returns:
+        Dictionary containing statistics
+    """
+    airports_list = get_airport_by_continent(continent_code)
+    
+    stats = {
+        'total': len(airports_list),
+        'by_country': {},
+        'by_type': {
+            'large_airport': 0,
+            'medium_airport': 0,
+            'small_airport': 0,
+            'heliport': 0,
+            'seaplane_base': 0,
+            'closed': 0,
+            'balloonport': 0
+        },
+        'with_scheduled_service': 0,
+        'average_runway_length': 0,
+        'average_elevation': 0,
+        'timezones': set()
+    }
+    
+    total_runway_length = 0
+    runway_count = 0
+    total_elevation = 0
+    elevation_count = 0
+    
+    for airport in airports_list:
+        # Country stats
+        cc = airport.get('country_code')
+        if cc:
+            stats['by_country'][cc] = stats['by_country'].get(cc, 0) + 1
+            
+        # Type stats
+        atype = airport.get('type')
+        if atype in stats['by_type']:
+            stats['by_type'][atype] += 1
+            
+        # Scheduled service
+        scheduled = airport.get('scheduled_service')
+        if scheduled == 'TRUE' or scheduled is True:
+            stats['with_scheduled_service'] += 1
+            
+        # Runway length
+        try:
+            rl = airport.get('runway_length')
+            if rl:
+                total_runway_length += float(rl)
+                runway_count += 1
+        except (ValueError, TypeError):
+            pass
+            
+        # Elevation
+        try:
+            el = airport.get('elevation_ft')
+            if el is not None:
+                total_elevation += float(el)
+                elevation_count += 1
+        except (ValueError, TypeError):
+            pass
+            
+        # Timezone
+        tz = airport.get('time')
+        if tz:
+            stats['timezones'].add(tz)
+            
+    if runway_count > 0:
+        stats['average_runway_length'] = total_runway_length / runway_count
+        
+    if elevation_count > 0:
+        stats['average_elevation'] = total_elevation / elevation_count
+        
+    stats['timezones'] = list(stats['timezones'])
+    return stats
+
+def get_largest_airports_by_continent(continent_code: str, limit: int = 10, sort_by: str = 'runway') -> List[Dict[str, Any]]:
+    """
+    Gets the largest airports on a continent by runway length or elevation.
+    
+    Args:
+        continent_code: 2-letter continent code
+        limit: Max number of results (default 10)
+        sort_by: 'runway' or 'elevation' (default 'runway')
+    
+    Returns:
+        List of airport objects
+    """
+    airports_list = get_airport_by_continent(continent_code)
+    
+    def get_sort_key(airport):
+        try:
+            if sort_by == 'elevation':
+                val = airport.get('elevation_ft')
+                return float(val) if val is not None else -1
+            else: # runway
+                val = airport.get('runway_length')
+                return float(val) if val else -1
+        except (ValueError, TypeError):
+            return -1
+            
+    sorted_airports = sorted(airports_list, key=get_sort_key, reverse=True)
+    return sorted_airports[:limit]
+
+def get_multiple_airports(codes: List[str]) -> List[Optional[Dict[str, Any]]]:
+    """
+    Fetches multiple airports by their IATA or ICAO codes.
+    
+    Args:
+        codes: List of IATA or ICAO codes
+    
+    Returns:
+        List of airport objects (None for codes not found)
+    """
+    return [_get_airport_by_code(code) for code in codes]
+
+def calculate_distance_matrix(codes: List[str]) -> Dict[str, Any]:
+    """
+    Calculates distances between all pairs of airports in a list.
+    
+    Args:
+        codes: List of IATA or ICAO codes
+    
+    Returns:
+        Dictionary with airport info and distance matrix
+    """
+    airport_objs = []
+    clean_codes = []
+    
+    for code in codes:
+        ap = _get_airport_by_code(code)
+        if ap:
+            airport_objs.append({
+                'code': code,
+                'name': ap.get('airport'),
+                'iata': ap.get('iata'),
+                'icao': ap.get('icao')
+            })
+            clean_codes.append(code)
+            
+    distances = {}
+    for code1 in clean_codes:
+        distances[code1] = {}
+        for code2 in clean_codes:
+            if code1 == code2:
+                distances[code1][code2] = 0
+            else:
+                dist = calculate_distance(code1, code2)
+                distances[code1][code2] = dist if dist is not None else -1
+                
+    return {
+        'airports': airport_objs,
+        'distances': distances
+    }
+
+def find_nearest_airport(lat: float, lon: float, filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """
+    Finds the single nearest airport to given coordinates, optionally with filters.
+    
+    Args:
+        lat: Latitude
+        lon: Longitude
+        filters: Optional dictionary of filters
+    
+    Returns:
+        Nearest airport object with 'distance' field, or None
+    """
+    R = 6371
+    
+    def to_rad(value):
+        return (value * math.pi) / 180
+        
+    nearest = None
+    min_dist = float('inf')
+    
+    # Filter candidates first if needed
+    candidates = airports
+    if filters:
+        candidates = find_airports(filters)
+        
+    for airport in candidates:
+        if not airport.get("latitude") or not airport.get("longitude"):
+            continue
+            
+        try:
+            alat = float(airport["latitude"])
+            alon = float(airport["longitude"])
+            
+            d_lat = to_rad(alat - lat)
+            d_lon = to_rad(alon - lon)
+            a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
+                 math.cos(to_rad(lat)) * math.cos(to_rad(alat)) *
+                 math.sin(d_lon / 2) * math.sin(d_lon / 2))
+            
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            dist = R * c
+            
+            if dist < min_dist:
+                min_dist = dist
+                nearest = airport.copy() # Return copy to avoid modifying original
+                nearest['distance'] = round(dist, 2)
+                
+        except (ValueError, TypeError):
+            continue
+            
+    return nearest
+
+def validate_iata_code(code: str) -> bool:
+    """
+    Validates if an IATA code exists in the database.
+    
+    Args:
+        code: 3-letter IATA code to validate
+        
+    Returns:
+        True if the code matches the format and exists in the database, False otherwise
+    """
+    if not isinstance(code, str) or not IATA_PATTERN.match(code.upper()):
+        return False
+    return _get_airport_by_code(code) is not None
+
+def validate_icao_code(code: str) -> bool:
+    """
+    Validates if an ICAO code exists in the database.
+    
+    Args:
+        code: 4-character ICAO code to validate
+        
+    Returns:
+        True if the code matches the format and exists in the database, False otherwise
+    """
+    if not isinstance(code, str) or not ICAO_PATTERN.match(code.upper()):
+        return False
+    return _get_airport_by_code(code) is not None
+
+def get_airport_count(filters: Optional[Dict[str, Any]] = None) -> int:
+    """
+    Gets the count of airports matching the given filters.
+    
+    Args:
+        filters: Optional dictionary of filters to apply
+        
+    Returns:
+        Total count of matching airports
+    """
+    if not filters:
+        return len(airports)
+    return len(find_airports(filters))
+
+def is_airport_operational(code: str) -> bool:
+    """
+    Checks if an airport has scheduled commercial service.
+    
+    Args:
+        code: IATA or ICAO code of the airport
+        
+    Returns:
+        True if the airport has scheduled service, False otherwise
+    """
+    ap = _get_airport_by_code(code)
+    if not ap:
+        return False
+        
+    scheduled = ap.get('scheduled_service')
+    return scheduled == 'TRUE' or scheduled is True

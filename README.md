@@ -198,6 +198,113 @@ links = airport_data.get_airport_links('SIN')
 #     'flightaware': "https://www.flightaware.com/live/airport/WSSS"
 # }
 ```
+### Statistical & Analytical Functions
+ 
+ #### `get_airport_stats_by_country(country_code)`
+ Gets comprehensive statistics about airports in a specific country.
+ 
+ ```python
+ stats = airport_data.get_airport_stats_by_country('US')
+ # Returns:
+ # {
+ #   'total': 5432,
+ #   'by_type': {
+ #     'large_airport': 139,
+ #     'medium_airport': 467,
+ #     'small_airport': 4826,
+ #     ...
+ #   },
+ #   'with_scheduled_service': 606,
+ #   'average_runway_length': 5234,
+ #   'average_elevation': 1245,
+ #   'timezones': ['America/New_York', 'America/Chicago', ...]
+ # }
+ ```
+ 
+ #### `get_airport_stats_by_continent(continent_code)`
+ Gets comprehensive statistics about airports on a specific continent.
+ 
+ ```python
+ stats = airport_data.get_airport_stats_by_continent('AS')
+ # Returns statistics for Asian airports
+ ```
+ 
+ #### `get_largest_airports_by_continent(continent_code, limit=10, sort_by='runway')`
+ Gets the largest airports on a continent by runway length or elevation.
+ 
+ ```python
+ # Get top 5 airports in Asia by runway length
+ top_airports = airport_data.get_largest_airports_by_continent('AS', limit=5, sort_by='runway')
+ 
+ # Get top 10 airports by elevation
+ high_airports = airport_data.get_largest_airports_by_continent('SA', limit=10, sort_by='elevation')
+ ```
+ 
+ ### Bulk Operations
+ 
+ #### `get_multiple_airports(codes)`
+ Fetches multiple airports by their IATA or ICAO codes in one call.
+ 
+ ```python
+ airports = airport_data.get_multiple_airports(['SIN', 'LHR', 'JFK', 'WSSS'])
+ # Returns list of airport objects (None for codes not found)
+ ```
+ 
+ #### `calculate_distance_matrix(codes)`
+ Calculates distances between all pairs of airports in a list.
+ 
+ ```python
+ matrix = airport_data.calculate_distance_matrix(['SIN', 'LHR', 'JFK'])
+ # Returns:
+ # {
+ #   'airports': [...],
+ #   'distances': {
+ #     'SIN': { 'SIN': 0, 'LHR': 10872, 'JFK': 15344 },
+ #     ...
+ #   }
+ # }
+ ```
+ 
+ #### `find_nearest_airport(lat, lon, filters=None)`
+ Finds the single nearest airport to given coordinates, optionally with filters.
+ 
+ ```python
+ # Find nearest airport
+ nearest = airport_data.find_nearest_airport(1.35019, 103.994003)
+ print(f"{nearest['airport']} is {nearest['distance']} km away")
+ 
+ # Find nearest large airport with scheduled service
+ nearest_hub = airport_data.find_nearest_airport(1.35019, 103.994003, {
+     'type': 'large_airport',
+     'has_scheduled_service': True
+ })
+ ```
+ 
+ ### Validation & Utilities
+ 
+ #### `validate_iata_code(code)` / `validate_icao_code(code)`
+ Validates if a code exists in the database.
+ 
+ ```python
+ is_valid = airport_data.validate_iata_code('SIN')  # True
+ ```
+ 
+ #### `get_airport_count(filters)`
+ Gets the count of airports matching the given filters.
+ 
+ ```python
+ count = airport_data.get_airport_count({
+     'country_code': 'US', 
+     'type': 'large_airport'
+ })
+ ```
+ 
+ #### `is_airport_operational(code)`
+ Checks if an airport has scheduled commercial service.
+ 
+ ```python
+ is_operational = airport_data.is_airport_operational('SIN')  # True
+ ```
 
 ## Error Handling
 
@@ -340,21 +447,33 @@ For Chennai International Airport:
 
 ## Changelog
 
-### Version 2.0.0 (Latest)
-
-#### 🆕 New Features
-- **`get_airports_by_timezone(timezone)`** - Find airports by timezone
-- **`get_airport_links(code)`** - Get external links for airports
-- **`find_airports(filters)`** - Advanced multi-criteria filtering
-- **`get_autocomplete_suggestions(query)`** - Autocomplete functionality
-- **Enhanced `get_airports_by_type(type)`** - Now supports convenience search for "airport" type
-- **`search_by_name(query)`** - Search airports by name
-- **`find_nearby_airports(lat, lon, radius_km)`** - Geographic proximity search
-- **`calculate_distance(code1, code2)`** - Distance calculation between airports
-- **External links support** - Wikipedia, websites, and flight tracking URLs
-- **Timezone information** - Complete timezone data for all airports
-- **Runway length data** - Airport runway information included
-- **Scheduled service indicator** - Whether airports have commercial scheduled service
+### Version 2.1.0 (Latest)
+ 
+ #### 🆕 New Features
+ - **`get_airport_stats_by_country(country_code)`** - Comprehensive country-level airport statistics
+ - **`get_airport_stats_by_continent(continent_code)`** - Continent-level statistics
+ - **`get_largest_airports_by_continent`** - Find top airports by runway length or elevation
+ - **`get_multiple_airports(codes)`** - Bulk fetch by IATA/ICAO codes
+ - **`calculate_distance_matrix(codes)`** - Calculate distances between all pairs of airports
+ - **`find_nearest_airport(lat, lon, filters)`** - Find single nearest airport with optional filtering
+ - **`validate_iata_code`** / **`validate_icao_code`** - Validation utilities
+ - **`is_airport_operational(code)`** - Check scheduled service status
+ - **`get_airport_count(filters)`** - Efficient filtered counting
+ 
+ #### 🔄 Improvements
+ - **Fixed `find_airports`** to correctly handle boolean filters stored as strings ("TRUE"/"FALSE")
+ - **`get_airports_by_timezone(timezone)`** - Find airports by timezone
+ - **`get_airport_links(code)`** - Get external links for airports
+ - **`find_airports(filters)`** - Advanced multi-criteria filtering
+ - **`get_autocomplete_suggestions(query)`** - Autocomplete functionality
+ - **Enhanced `get_airports_by_type(type)`** - Now supports convenience search for "airport" type
+ - **`search_by_name(query)`** - Search airports by name
+ - **`find_nearby_airports(lat, lon, radius_km)`** - Geographic proximity search
+ - **`calculate_distance(code1, code2)`** - Distance calculation between airports
+ - **External links support** - Wikipedia, websites, and flight tracking URLs
+ - **Timezone information** - Complete timezone data for all airports
+ - **Runway length data** - Airport runway information included
+ - **Scheduled service indicator** - Whether airports have commercial scheduled service
 
 #### 🔄 Improvements
 - Better error handling and validation with specific error messages
