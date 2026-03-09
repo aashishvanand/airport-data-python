@@ -1,5 +1,8 @@
 from setuptools import setup, find_packages
 
+with open("README.md", encoding="utf-8") as f:
+    long_description = f.read()
+
 setup(
     name="airports-py",
     version="3.0.0",
@@ -8,7 +11,7 @@ setup(
     author="Aashish Vivekanand",
     author_email="aashishvanand@gmail.com",
     description="A comprehensive library providing easy retrieval of airport data based on IATA, ICAO, city codes, country codes, and continents. Features geographic search, distance calculation, timezone lookup, and external links integration.",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://aashishvanand.me/airport-data-js/",
     project_urls={
@@ -72,6 +75,6 @@ setup(
     },
     include_package_data=True,
     package_data={
-        "airports": ["data/*.gz", "data/*.json"],
+        "airports": ["data/*.gz"],
     },
 )
