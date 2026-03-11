@@ -1,20 +1,23 @@
 from setuptools import setup, find_packages
 
+with open("README.md", encoding="utf-8") as f:
+    long_description = f.read()
+
 setup(
     name="airports-py",
-    version="3.0.0",
+    version="3.1.0",
     packages=find_packages(),
     install_requires=[],
     author="Aashish Vivekanand",
     author_email="aashishvanand@gmail.com",
     description="A comprehensive library providing easy retrieval of airport data based on IATA, ICAO, city codes, country codes, and continents. Features geographic search, distance calculation, timezone lookup, and external links integration.",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://aashishvanand.me/airport-data-js/",
+    url="https://airportdata.dev",
     project_urls={
-        "Source Code": "https://github.com/aashishvanand/airports-py",
-        "Bug Reports": "https://github.com/aashishvanand/airports-py/issues",
-        "Documentation": "https://github.com/aashishvanand/airports-py#readme",
+        "Source Code": "https://github.com/aashishvanand/airport-data-python",
+        "Bug Reports": "https://github.com/aashishvanand/airport-data-python/issues",
+        "Documentation": "https://github.com/aashishvanand/airport-data-python#readme",
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -72,6 +75,6 @@ setup(
     },
     include_package_data=True,
     package_data={
-        "airports": ["data/*.gz", "data/*.json"],
+        "airports": ["data/*.gz"],
     },
 )

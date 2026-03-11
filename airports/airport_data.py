@@ -4,18 +4,54 @@ import os
 import math
 import re
 from typing import List, Dict, Any, Optional, Union
+from collections import defaultdict
 
 # Load the gzipped JSON data from the data directory
 data_file_path = os.path.join(os.path.dirname(__file__), 'data', 'airports.gz')
 with gzip.open(data_file_path, 'rt', encoding='utf-8') as f:
     airports = json.load(f)
 
-# Create search index for better performance
-airport_name_index = {}
-for airport in airports:
-    name = airport.get("airport", "").lower()
-    if name:
-        airport_name_index[name] = airport
+# Build O(1) lookup indexes at load time for fast code-based lookups
+_iata_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+_icao_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+_country_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+_continent_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+_city_code_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+_timezone_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
+# Name index maps lowercase name -> list of airports (handles duplicate names)
+airport_name_index: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
+for _airport in airports:
+    _iata = _airport.get("iata", "")
+    if _iata:
+        _iata_index[_iata].append(_airport)
+
+    _icao = _airport.get("icao", "")
+    if _icao:
+        _icao_index[_icao].append(_airport)
+
+    _cc = _airport.get("country_code", "")
+    if _cc:
+        _country_index[_cc].append(_airport)
+
+    _cont = _airport.get("continent", "")
+    if _cont:
+        _continent_index[_cont].append(_airport)
+
+    _city = _airport.get("city_code", "")
+    if _city:
+        _city_code_index[_city].append(_airport)
+
+    _tz = _airport.get("time", "")
+    if _tz:
+        _timezone_index[_tz].append(_airport)
+
+    _name = _airport.get("airport", "").lower()
+    if _name:
+        airport_name_index[_name].append(_airport)
+
+
 
 # Compile regex patterns once at module level for better performance
 IATA_PATTERN = re.compile(r'^[A-Z]{3}$')
@@ -23,6 +59,23 @@ ICAO_PATTERN = re.compile(r'^[A-Z0-9]{4}$')
 CITY_CODE_PATTERN = re.compile(r'^[A-Z0-9]+$')
 COUNTRY_CODE_PATTERN = re.compile(r'^[A-Z]{2}$')
 CONTINENT_CODE_PATTERN = re.compile(r'^[A-Z]{2}$')
+
+# Module-level Haversine helper to avoid redefining in multiple functions
+_EARTH_RADIUS_KM = 6371
+
+def _to_rad(value: float) -> float:
+    """Convert degrees to radians."""
+    return math.radians(value)
+
+def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate great-circle distance between two points using the Haversine formula."""
+    d_lat = _to_rad(lat2 - lat1)
+    d_lon = _to_rad(lon2 - lon1)
+    a = (math.sin(d_lat / 2) ** 2 +
+         math.cos(_to_rad(lat1)) * math.cos(_to_rad(lat2)) *
+         math.sin(d_lon / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return _EARTH_RADIUS_KM * c
 
 def _validate_input(data: str, pattern: re.Pattern, error_message: str) -> str:
     """
@@ -53,6 +106,7 @@ def _validate_input(data: str, pattern: re.Pattern, error_message: str) -> str:
 def _get_airport_by_code(code: str) -> Optional[Dict[str, Any]]:
     """
     Helper function to get an airport by either IATA or ICAO code.
+    Uses pre-built indexes for O(1) lookup instead of linear scan.
     
     Args:
         code: A 3-letter IATA or 4-character ICAO code
@@ -65,14 +119,14 @@ def _get_airport_by_code(code: str) -> Optional[Dict[str, Any]]:
     
     code = code.upper()
     
-    # Check IATA code format (3 uppercase letters)
+    # Check IATA code format (3 uppercase letters) - O(1) index lookup
     if len(code) == 3 and code.isalpha():
-        results = [airport for airport in airports if airport.get("iata") == code]
+        results = _iata_index.get(code)
         return results[0] if results else None
     
-    # Check ICAO code format (4 uppercase letters/numbers)
+    # Check ICAO code format (4 uppercase letters/numbers) - O(1) index lookup
     if len(code) == 4 and code.isalnum():
-        results = [airport for airport in airports if airport.get("icao") == code]
+        results = _icao_index.get(code)
         return results[0] if results else None
     
     return None
@@ -95,8 +149,7 @@ def get_airport_by_iata(iata_code: str) -> List[Dict[str, Any]]:
         IATA_PATTERN, 
         "Invalid IATA format. Please provide a 3-letter code, e.g., 'AAA'."
     )
-    results = [airport for airport in airports if airport.get("iata") == normalized_code]
-    return results
+    return list(_iata_index.get(normalized_code, []))
 
 def get_airport_by_icao(icao_code: str) -> List[Dict[str, Any]]:
     """
@@ -116,8 +169,7 @@ def get_airport_by_icao(icao_code: str) -> List[Dict[str, Any]]:
         ICAO_PATTERN, 
         "Invalid ICAO format. Please provide a 4-character code, e.g., 'NTGA'."
     )
-    results = [airport for airport in airports if airport.get("icao") == normalized_code]
-    return results
+    return list(_icao_index.get(normalized_code, []))
 
 def get_airport_by_city_code(city_code: str) -> List[Dict[str, Any]]:
     """
@@ -137,8 +189,7 @@ def get_airport_by_city_code(city_code: str) -> List[Dict[str, Any]]:
         CITY_CODE_PATTERN, 
         "Invalid City Code format. Please provide an alphanumeric code, e.g., 'NYC'."
     )
-    results = [airport for airport in airports if airport.get("city_code") == normalized_code]
-    return results
+    return list(_city_code_index.get(normalized_code, []))
 
 def get_airport_by_country_code(country_code: str) -> List[Dict[str, Any]]:
     """
@@ -158,8 +209,7 @@ def get_airport_by_country_code(country_code: str) -> List[Dict[str, Any]]:
         COUNTRY_CODE_PATTERN, 
         "Invalid Country Code format. Please provide a 2-letter code, e.g., 'US'."
     )
-    results = [airport for airport in airports if airport.get("country_code") == normalized_code]
-    return results
+    return list(_country_index.get(normalized_code, []))
 
 def get_airport_by_continent(continent_code: str) -> List[Dict[str, Any]]:
     """
@@ -179,8 +229,7 @@ def get_airport_by_continent(continent_code: str) -> List[Dict[str, Any]]:
         CONTINENT_CODE_PATTERN, 
         "Invalid Continent Code format. Please provide a 2-letter code, e.g., 'AS'."
     )
-    results = [airport for airport in airports if airport.get("continent") == normalized_code]
-    return results
+    return list(_continent_index.get(normalized_code, []))
 
 def search_by_name(query: str, max_results: int = 100) -> List[Dict[str, Any]]:
     """
@@ -201,28 +250,26 @@ def search_by_name(query: str, max_results: int = 100) -> List[Dict[str, Any]]:
     
     lower_case_query = query.lower()
     results = []
+    seen_ids = set()  # Track by id() for O(1) dedup instead of O(n) list containment
     
-    # First, check for exact matches in the index (most efficient)
-    if lower_case_query in airport_name_index:
-        results.append(airport_name_index[lower_case_query])
-    
-    # Then check for partial matches in index
-    for name, airport in airport_name_index.items():
-        if lower_case_query in name and airport not in results:
+    # First, check for exact match in name index (O(1) lookup)
+    exact_matches = airport_name_index.get(lower_case_query, [])
+    for airport in exact_matches:
+        if id(airport) not in seen_ids:
             results.append(airport)
-            # Early termination for performance
+            seen_ids.add(id(airport))
             if len(results) >= max_results:
-                break
+                return results
     
-    # If we still need more results, fall back to full search
-    if len(results) < max_results:
-        for airport in airports:
-            if (airport not in results and 
-                lower_case_query in airport.get("airport", "").lower()):
-                results.append(airport)
-                # Early termination when we have enough results
-                if len(results) >= max_results:
-                    break
+    # Then check for partial matches in name index
+    for name, airport_list in airport_name_index.items():
+        if lower_case_query in name:
+            for airport in airport_list:
+                if id(airport) not in seen_ids:
+                    results.append(airport)
+                    seen_ids.add(id(airport))
+                    if len(results) >= max_results:
+                        return results
     
     return results
 
@@ -238,31 +285,15 @@ def find_nearby_airports(lat: float, lon: float, radius_km: float = 100) -> List
     Returns:
         A list of airports within the radius
     """
-    R = 6371  # Radius of the Earth in kilometers
-    
-    def to_rad(value):
-        return (value * math.pi) / 180
-    
     results = []
     for airport in airports:
-        # Use 'latitude' and 'longitude' and ensure they exist
-        if not airport.get("latitude") or not airport.get("longitude"):
+        airport_lat = airport.get("latitude")
+        airport_lon = airport.get("longitude")
+        if not airport_lat or not airport_lon:
             continue
         
         try:
-            # Convert string coordinates to numbers before calculating
-            airport_lat = float(airport["latitude"])
-            airport_lon = float(airport["longitude"])
-            
-            d_lat = to_rad(airport_lat - lat)
-            d_lon = to_rad(airport_lon - lon)
-            a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
-                 math.cos(to_rad(lat)) * math.cos(to_rad(airport_lat)) *
-                 math.sin(d_lon / 2) * math.sin(d_lon / 2))
-            
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-            distance = R * c
-            
+            distance = _haversine_distance(lat, lon, float(airport_lat), float(airport_lon))
             if distance <= radius_km:
                 results.append(airport)
         except (ValueError, TypeError):
@@ -322,26 +353,10 @@ def calculate_distance(code1: str, code2: str) -> Optional[float]:
         return None
     
     try:
-        R = 6371  # Radius of the Earth in kilometers
-        
-        def to_rad(value):
-            return (value * math.pi) / 180
-        
-        lat1 = float(airport1["latitude"])
-        lon1 = float(airport1["longitude"])
-        lat2 = float(airport2["latitude"])
-        lon2 = float(airport2["longitude"])
-        
-        d_lat = to_rad(lat2 - lat1)
-        d_lon = to_rad(lon2 - lon1)
-        
-        a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
-             math.cos(to_rad(lat1)) * math.cos(to_rad(lat2)) *
-             math.sin(d_lon / 2) * math.sin(d_lon / 2))
-        
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        
-        return R * c
+        return _haversine_distance(
+            float(airport1["latitude"]), float(airport1["longitude"]),
+            float(airport2["latitude"]), float(airport2["longitude"])
+        )
     except (ValueError, TypeError, KeyError):
         return None
 
@@ -364,8 +379,8 @@ def get_autocomplete_suggestions(query: str, limit: int = 10) -> List[Dict[str, 
     results = []
     
     for airport in airports:
-        if (airport.get("airport", "").lower().find(lower_case_query) != -1 or
-            airport.get("iata", "").lower().find(lower_case_query) != -1):
+        if (lower_case_query in airport.get("airport", "").lower() or
+            lower_case_query in airport.get("iata", "").lower()):
             results.append(airport)
             
             # Early termination when limit is reached for better performance
@@ -440,8 +455,7 @@ def get_airports_by_timezone(timezone: str) -> List[Dict[str, Any]]:
     if not timezone:
         raise ValueError("Timezone cannot be empty.")
     
-    # The data key is 'time', you might want to alias it to 'timezone'
-    return [airport for airport in airports if airport.get('time') == timezone]
+    return list(_timezone_index.get(timezone, []))
 
 def get_airport_links(code: str) -> Optional[Dict[str, Optional[str]]]:
     """
@@ -668,6 +682,7 @@ def get_multiple_airports(codes: List[str]) -> List[Optional[Dict[str, Any]]]:
 def calculate_distance_matrix(codes: List[str]) -> Dict[str, Any]:
     """
     Calculates distances between all pairs of airports in a list.
+    Pre-resolves all airports once to avoid redundant lookups in the inner loop.
     
     Args:
         codes: List of IATA or ICAO codes
@@ -675,12 +690,15 @@ def calculate_distance_matrix(codes: List[str]) -> Dict[str, Any]:
     Returns:
         Dictionary with airport info and distance matrix
     """
+    # Pre-resolve all airports once (O(k) lookups instead of O(k^2))
+    resolved = {}
     airport_objs = []
     clean_codes = []
     
     for code in codes:
         ap = _get_airport_by_code(code)
         if ap:
+            resolved[code] = ap
             airport_objs.append({
                 'code': code,
                 'name': ap.get('airport'),
@@ -688,16 +706,36 @@ def calculate_distance_matrix(codes: List[str]) -> Dict[str, Any]:
                 'icao': ap.get('icao')
             })
             clean_codes.append(code)
-            
+    
+    # Compute distances using pre-resolved airports directly
     distances = {}
     for code1 in clean_codes:
         distances[code1] = {}
+        ap1 = resolved[code1]
+        try:
+            lat1 = float(ap1["latitude"])
+            lon1 = float(ap1["longitude"])
+        except (ValueError, TypeError, KeyError):
+            for code2 in clean_codes:
+                distances[code1][code2] = 0 if code1 == code2 else -1
+            continue
+        
         for code2 in clean_codes:
             if code1 == code2:
                 distances[code1][code2] = 0
+            elif code2 in distances and code1 in distances[code2]:
+                # Reuse already-computed symmetric distance
+                distances[code1][code2] = distances[code2][code1]
             else:
-                dist = calculate_distance(code1, code2)
-                distances[code1][code2] = dist if dist is not None else -1
+                ap2 = resolved[code2]
+                try:
+                    dist = _haversine_distance(
+                        lat1, lon1,
+                        float(ap2["latitude"]), float(ap2["longitude"])
+                    )
+                    distances[code1][code2] = dist
+                except (ValueError, TypeError, KeyError):
+                    distances[code1][code2] = -1
                 
     return {
         'airports': airport_objs,
@@ -716,11 +754,6 @@ def find_nearest_airport(lat: float, lon: float, filters: Optional[Dict[str, Any
     Returns:
         Nearest airport object with 'distance' field, or None
     """
-    R = 6371
-    
-    def to_rad(value):
-        return (value * math.pi) / 180
-        
     nearest = None
     min_dist = float('inf')
     
@@ -730,25 +763,17 @@ def find_nearest_airport(lat: float, lon: float, filters: Optional[Dict[str, Any
         candidates = find_airports(filters)
         
     for airport in candidates:
-        if not airport.get("latitude") or not airport.get("longitude"):
+        airport_lat = airport.get("latitude")
+        airport_lon = airport.get("longitude")
+        if not airport_lat or not airport_lon:
             continue
             
         try:
-            alat = float(airport["latitude"])
-            alon = float(airport["longitude"])
-            
-            d_lat = to_rad(alat - lat)
-            d_lon = to_rad(alon - lon)
-            a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
-                 math.cos(to_rad(lat)) * math.cos(to_rad(alat)) *
-                 math.sin(d_lon / 2) * math.sin(d_lon / 2))
-            
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-            dist = R * c
+            dist = _haversine_distance(lat, lon, float(airport_lat), float(airport_lon))
             
             if dist < min_dist:
                 min_dist = dist
-                nearest = airport.copy() # Return copy to avoid modifying original
+                nearest = airport.copy()  # Return copy to avoid modifying original
                 nearest['distance'] = round(dist, 2)
                 
         except (ValueError, TypeError):

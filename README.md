@@ -1,4 +1,4 @@
-# airports-py
+# airport-data-python
 
 A comprehensive Python library providing easy retrieval of airport data based on IATA, ICAO, city codes, country codes, and continents. Ideal for developers building applications related to aviation, travel, and geography in Python.
 
@@ -33,17 +33,18 @@ Each airport object contains the following fields:
     "iata": "SIN",                    # 3-letter IATA code
     "icao": "WSSS",                   # 4-letter ICAO code
     "time": "Asia/Singapore",         # Timezone identifier
+    "utc": 8,                         # UTC offset in hours (int)
     "country_code": "SG",             # 2-letter country code
     "continent": "AS",                # 2-letter continent code (AS, EU, NA, SA, AF, OC, AN)
     "airport": "Singapore Changi Airport",  # Airport name
-    "latitude": "1.35019",            # Latitude coordinate
-    "longitude": "103.994003",        # Longitude coordinate
-    "elevation": "22",                # Elevation in feet
+    "latitude": 1.361173,             # Latitude coordinate (float)
+    "longitude": 103.990201,          # Longitude coordinate (float)
+    "elevation_ft": 193068,           # Elevation in feet (int)
     "type": "large_airport",          # Airport type
-    "scheduled_service": "yes",       # Has scheduled commercial service
+    "scheduled_service": "TRUE",      # Has scheduled commercial service ("TRUE"/"FALSE")
     "wikipedia": "https://en.wikipedia.org/wiki/Singapore_Changi_Airport",
-    "website": "https://www.changiairport.com",
-    "runway_length": "13200",         # Longest runway in feet
+    "website": "http://www.changiairport.com",
+    "runway_length": 13200,           # Longest runway in feet (int)
     "flightradar24_url": "https://www.flightradar24.com/airport/SIN",
     "radarbox_url": "https://www.radarbox.com/airport/WSSS",
     "flightaware_url": "https://www.flightaware.com/live/airport/WSSS"
@@ -119,6 +120,14 @@ distance = airport_data.calculate_distance('LHR', 'JFK')
 ```
 
 ### Filtering Functions
+
+#### `get_airport_by_city_code(city_code)`
+Finds airports by their city code.
+
+```python
+airports = airport_data.get_airport_by_city_code('NYC')
+# Returns all airports associated with New York City
+```
 
 #### `get_airport_by_country_code(country_code)`
 Finds all airports in a specific country.
@@ -308,13 +317,18 @@ links = airport_data.get_airport_links('SIN')
 
 ## Error Handling
 
-All functions raise appropriate exceptions for invalid input or when no data is found.
+Functions raise `ValueError` for **invalid input formats** (e.g., wrong length, invalid characters). For valid formats that simply don't match any airport, an empty list is returned instead.
 
 ```python
+# Invalid format raises ValueError
 try:
-    airport = airport_data.get_airport_by_iata('XYZ')
+    airport = airport_data.get_airport_by_iata('AB')  # Too short
 except ValueError as e:
-    print(e)  # "No data found for IATA code: XYZ"
+    print(e)  # "Invalid IATA format. Please provide a 3-letter code, e.g., 'AAA'."
+
+# Valid format but non-existent code returns empty list
+result = airport_data.get_airport_by_iata('XYZ')
+print(result)  # []
 ```
 
 ## Examples
@@ -355,6 +369,63 @@ asian_hubs = airport_data.find_airports({
 })
 ```
 
+### Get airport statistics
+
+```python
+# Get comprehensive statistics for US airports
+us_stats = airport_data.get_airport_stats_by_country('US')
+print(f"Total airports: {us_stats['total']}")
+print(f"Large airports: {us_stats['by_type']['large_airport']}")
+print(f"Average runway length: {us_stats['average_runway_length']} ft")
+
+# Get statistics for Asian airports
+asia_stats = airport_data.get_airport_stats_by_continent('AS')
+print(f"Countries with airports: {len(asia_stats['by_country'])}")
+```
+
+### Bulk operations
+
+```python
+# Fetch multiple airports at once
+airports = airport_data.get_multiple_airports(['SIN', 'LHR', 'JFK', 'NRT'])
+for ap in airports:
+    if ap:
+        print(f"{ap['iata']}: {ap['airport']}")
+
+# Calculate distance matrix for route planning
+matrix = airport_data.calculate_distance_matrix(['SIN', 'LHR', 'JFK'])
+print(f"Distance from SIN to LHR: {matrix['distances']['SIN']['LHR']:.0f} km")
+print(f"Distance from LHR to JFK: {matrix['distances']['LHR']['JFK']:.0f} km")
+```
+
+### Validation utilities
+
+```python
+# Validate airport codes before processing
+codes = ['SIN', 'XYZ', 'LHR', 'ABCD']
+for code in codes:
+    is_valid = airport_data.validate_iata_code(code)
+    print(f"{code}: {'Valid' if is_valid else 'Invalid'}")
+
+# Check if airport is operational
+operational = airport_data.is_airport_operational('SIN')
+print(f"Singapore Changi is operational: {operational}")
+```
+
+### Find nearest airport
+
+```python
+# Find nearest airport to current location
+nearest = airport_data.find_nearest_airport(1.35019, 103.994003)
+print(f"Nearest airport: {nearest['airport']} ({nearest['distance']} km away)")
+
+# Find nearest large airport with scheduled service
+nearest_hub = airport_data.find_nearest_airport(1.35019, 103.994003, {
+    'type': 'large_airport',
+    'has_scheduled_service': True
+})
+```
+
 ### Using Command-Line Interface (CLI)
 
 You can also directly execute Python code from the CLI without entering the interactive shell. Navigate to the root of your project and run:
@@ -372,7 +443,7 @@ To test the library locally:
 1. Navigate to the root of the project:
 
 ```bash
-cd path_to_airports-py
+cd path_to_airport-data-python
 ```
 
 2. Run the tests using:
@@ -385,107 +456,32 @@ This command will discover and run all test files inside the `tests` directory a
 
 ## Example Data Fields
 
-For Chennai International Airport:
+For Singapore Changi Airport (as returned by the library):
 
-| Field Name           | Data                                                     |
+| Key                  | Value                                                    |
 |----------------------|----------------------------------------------------------|
-| IATA                 | MAA                                                      |
-| ICAO                 | VOMM                                                     |
-| Time Zone            | Asia/Kolkata                                             |
-| City Code            | MAA                                                      |
-| Country Code         | IN                                                       |
-| Name                 | Chennai International Airport                            |
-| Latitude             | 12.99                                                    |
-| Longitude            | 80.1693                                                  |
-| Altitude (in feet)   | 52                                                       |
-| State                | Tamil Nadu                                               |
-| City                 | Pallavaram                                               |
-| County               | Kancheepuram                                             |
-| State Code           | Tamil Nadu                                               |
-| Airport Type         | large_airport                                            |
-| Continent            | AS                                                       |
-| State Abbreviation   | IN-TN                                                    |
-| International        | TRUE                                                     |
-| Wikipedia Link       | [Wikipedia](https://en.wikipedia.org/wiki/Chennai_International_Airport)|
-| Official Website     | [Chennai Airport](http://chennaiairport.com)            |
-| Location ID          | 12513629                                                 |
-| Phone Number         | 044-2340551                                              |
-| Runway Length (in meters) | 10050                                               |
-| Flightradar24        | [Flightradar24](https://www.flightradar24.com/airport/MAA)|
-| Radarbox             | [Radarbox](https://www.radarbox.com/airport/VOMM)       |
-| Flightaware Link     | [Flightaware](https://www.flightaware.com/live/airport/VOMM)|
-
-### Singapore Changi Airport:
-
-| Field Name           | Data                                                     |
-|----------------------|----------------------------------------------------------|
-| IATA                 | SIN                                                      |
-| ICAO                 | WSSS                                                     |
-| Time Zone            | Asia/Singapore                                           |
-| City Code            | SIN                                                      |
-| Country Code         | SG                                                       |
-| Name                 | Singapore Changi Airport                                 |
-| Latitude             | 1.35019                                                  |
-| Longitude            | 103.994                                                  |
-| Altitude (in feet)   | 22                                                       |
-| State                | Singapore                                                |
-| City                 | Singapore                                                |
-| County               | Singapore                                                |
-| State Code           | South East                                               |
-| Airport Type         | large_airport                                            |
-| Continent            | AS                                                       |
-| State Abbreviation   | SG-04                                                    |
-| International        | TRUE                                                     |
-| Wikipedia Link       | [Wikipedia](https://en.wikipedia.org/wiki/Singapore_Changi_Airport)|
-| Official Website     | [Changi Airport](http://www.changiairport.com/)         |
-| Location ID          | 12517525                                                 |
-| Phone Number         | (65) 6542 1122                                           |
-| Runway Length (in meters) | 13200                                               |
-| Flightradar24         | [Flightradar24](https://www.flightradar24.com/airport/SIN)|
-| Radarbox              | [Radarbox](https://www.radarbox.com/airport/WSSS)       |
-| Flightaware           | [Flightaware](https://www.flightaware.com/live/airport/WSSS)|
+| `iata`               | `"SIN"`                                                  |
+| `icao`               | `"WSSS"`                                                 |
+| `airport`            | `"Singapore Changi Airport"`                             |
+| `time`               | `"Asia/Singapore"`                                       |
+| `utc`                | `8`                                                      |
+| `country_code`       | `"SG"`                                                   |
+| `continent`          | `"AS"`                                                   |
+| `latitude`           | `1.361173`                                               |
+| `longitude`          | `103.990201`                                             |
+| `elevation_ft`       | `193068`                                                 |
+| `type`               | `"large_airport"`                                        |
+| `scheduled_service`  | `"TRUE"`                                                 |
+| `runway_length`      | `13200`                                                  |
+| `wikipedia`          | `"https://en.wikipedia.org/wiki/Singapore_Changi_Airport"` |
+| `website`            | `"http://www.changiairport.com"`                         |
+| `flightradar24_url`  | `"https://www.flightradar24.com/airport/SIN"`            |
+| `radarbox_url`       | `"https://www.radarbox.com/airport/WSSS"`                |
+| `flightaware_url`    | `"https://www.flightaware.com/live/airport/WSSS"`        |
 
 ## Changelog
 
-### Version 2.1.0 (Latest)
- 
- #### 🆕 New Features
- - **`get_airport_stats_by_country(country_code)`** - Comprehensive country-level airport statistics
- - **`get_airport_stats_by_continent(continent_code)`** - Continent-level statistics
- - **`get_largest_airports_by_continent`** - Find top airports by runway length or elevation
- - **`get_multiple_airports(codes)`** - Bulk fetch by IATA/ICAO codes
- - **`calculate_distance_matrix(codes)`** - Calculate distances between all pairs of airports
- - **`find_nearest_airport(lat, lon, filters)`** - Find single nearest airport with optional filtering
- - **`validate_iata_code`** / **`validate_icao_code`** - Validation utilities
- - **`is_airport_operational(code)`** - Check scheduled service status
- - **`get_airport_count(filters)`** - Efficient filtered counting
- 
- #### 🔄 Improvements
- - **Fixed `find_airports`** to correctly handle boolean filters stored as strings ("TRUE"/"FALSE")
- - **`get_airports_by_timezone(timezone)`** - Find airports by timezone
- - **`get_airport_links(code)`** - Get external links for airports
- - **`find_airports(filters)`** - Advanced multi-criteria filtering
- - **`get_autocomplete_suggestions(query)`** - Autocomplete functionality
- - **Enhanced `get_airports_by_type(type)`** - Now supports convenience search for "airport" type
- - **`search_by_name(query)`** - Search airports by name
- - **`find_nearby_airports(lat, lon, radius_km)`** - Geographic proximity search
- - **`calculate_distance(code1, code2)`** - Distance calculation between airports
- - **External links support** - Wikipedia, websites, and flight tracking URLs
- - **Timezone information** - Complete timezone data for all airports
- - **Runway length data** - Airport runway information included
- - **Scheduled service indicator** - Whether airports have commercial scheduled service
-
-#### 🔄 Improvements
-- Better error handling and validation with specific error messages
-- More comprehensive airport data structure
-- Improved type filtering with partial matching
-- Enhanced geographic calculations using great-circle distance
-- Case-insensitive search improvements
-- Comprehensive test coverage for all functions
-
-#### ❌ Removed from v1.x
-- Legacy simple filtering (replaced with advanced `find_airports` function)
-- Basic airport objects (expanded to include more fields)
+See [CHANGELOG.md](CHANGELOG.md) for the full version history and release notes.
 
 ## Running the Project Locally
 
@@ -497,12 +493,12 @@ For Chennai International Airport:
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/aashishvanand/airports-py.git
+git clone https://github.com/aashishvanand/airport-data-python.git
 ```
 
 2. **Change into the cloned directory:**
 ```bash
-cd airports-py
+cd airport-data-python
 ```
 
 3. **Create a virtual environment (recommended):**
@@ -694,4 +690,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/aashishvanand/airports-py/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/aashishvanand/airport-data-python/issues).

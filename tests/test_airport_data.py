@@ -252,5 +252,255 @@ class TestAirportData(unittest.TestCase):
         result = airport_data.get_airport_by_country_code("ZZ")
         self.assertEqual(result, [])
 
+    # ========================================================================
+    # Statistical & Analytical Functions Tests
+    # ========================================================================
+
+    def test_get_airport_stats_by_country(self):
+        """Test comprehensive statistics for a country"""
+        # Test with Singapore (small country, manageable data)
+        stats = airport_data.get_airport_stats_by_country('SG')
+        self.assertIn('total', stats)
+        self.assertIn('by_type', stats)
+        self.assertIn('with_scheduled_service', stats)
+        self.assertIn('average_runway_length', stats)
+        self.assertIn('average_elevation', stats)
+        self.assertIn('timezones', stats)
+        self.assertGreater(stats['total'], 0)
+        self.assertIsInstance(stats['timezones'], list)
+
+    def test_get_airport_stats_by_country_us(self):
+        """Test statistics for US airports"""
+        stats = airport_data.get_airport_stats_by_country('US')
+        self.assertGreater(stats['total'], 1000)
+        self.assertIn('large_airport', stats['by_type'])
+        self.assertGreater(stats['by_type']['large_airport'], 0)
+
+    def test_get_airport_stats_by_country_invalid(self):
+        """Test that invalid country code raises ValueError"""
+        with self.assertRaises(ValueError):
+            airport_data.get_airport_stats_by_country('XYZ')
+
+    def test_get_airport_stats_by_continent(self):
+        """Test comprehensive statistics for a continent"""
+        stats = airport_data.get_airport_stats_by_continent('AS')
+        self.assertIn('total', stats)
+        self.assertIn('by_type', stats)
+        self.assertIn('by_country', stats)
+        self.assertIn('with_scheduled_service', stats)
+        self.assertGreater(stats['total'], 100)
+        self.assertGreater(len(stats['by_country']), 10)
+
+    def test_get_airport_stats_by_continent_country_breakdown(self):
+        """Test that continent stats include specific country breakdowns"""
+        stats = airport_data.get_airport_stats_by_continent('EU')
+        self.assertIn('GB', stats['by_country'])
+        self.assertIn('FR', stats['by_country'])
+        self.assertIn('DE', stats['by_country'])
+
+    def test_get_largest_airports_by_continent_runway(self):
+        """Test top airports by runway length"""
+        airports_list = airport_data.get_largest_airports_by_continent('AS', 5, 'runway')
+        self.assertLessEqual(len(airports_list), 5)
+        self.assertGreater(len(airports_list), 0)
+        # Check that results are sorted by runway length descending
+        for i in range(len(airports_list) - 1):
+            try:
+                runway1 = float(airports_list[i].get('runway_length', 0) or 0)
+                runway2 = float(airports_list[i + 1].get('runway_length', 0) or 0)
+                self.assertGreaterEqual(runway1, runway2)
+            except (ValueError, TypeError):
+                pass
+
+    def test_get_largest_airports_by_continent_elevation(self):
+        """Test top airports by elevation"""
+        airports_list = airport_data.get_largest_airports_by_continent('SA', 5, 'elevation')
+        self.assertLessEqual(len(airports_list), 5)
+        # Check that results are sorted by elevation descending
+        for i in range(len(airports_list) - 1):
+            try:
+                elev1 = float(airports_list[i].get('elevation_ft', 0) or 0)
+                elev2 = float(airports_list[i + 1].get('elevation_ft', 0) or 0)
+                self.assertGreaterEqual(elev1, elev2)
+            except (ValueError, TypeError):
+                pass
+
+    def test_get_largest_airports_by_continent_limit(self):
+        """Test that the limit parameter is respected"""
+        airports_list = airport_data.get_largest_airports_by_continent('EU', 3)
+        self.assertLessEqual(len(airports_list), 3)
+
+    # ========================================================================
+    # Bulk Operations Tests
+    # ========================================================================
+
+    def test_get_multiple_airports_iata(self):
+        """Test fetching multiple airports by IATA codes"""
+        results = airport_data.get_multiple_airports(['SIN', 'LHR', 'JFK'])
+        self.assertEqual(len(results), 3)
+        self.assertEqual(results[0]['iata'], 'SIN')
+        self.assertEqual(results[1]['iata'], 'LHR')
+        self.assertEqual(results[2]['iata'], 'JFK')
+
+    def test_get_multiple_airports_mixed_codes(self):
+        """Test fetching with mix of IATA and ICAO codes"""
+        results = airport_data.get_multiple_airports(['SIN', 'EGLL', 'JFK'])
+        self.assertEqual(len(results), 3)
+        self.assertTrue(all(a is not None for a in results))
+
+    def test_get_multiple_airports_invalid_codes(self):
+        """Test that invalid codes return None in the results"""
+        results = airport_data.get_multiple_airports(['SIN', 'INVALID', 'LHR'])
+        self.assertEqual(len(results), 3)
+        self.assertIsNotNone(results[0])
+        self.assertIsNone(results[1])
+        self.assertIsNotNone(results[2])
+
+    def test_get_multiple_airports_empty(self):
+        """Test with empty list"""
+        results = airport_data.get_multiple_airports([])
+        self.assertEqual(len(results), 0)
+
+    def test_calculate_distance_matrix(self):
+        """Test distance matrix calculation"""
+        matrix = airport_data.calculate_distance_matrix(['SIN', 'LHR', 'JFK'])
+        self.assertIn('airports', matrix)
+        self.assertIn('distances', matrix)
+        self.assertEqual(len(matrix['airports']), 3)
+
+        # Check diagonal is zero
+        self.assertEqual(matrix['distances']['SIN']['SIN'], 0)
+        self.assertEqual(matrix['distances']['LHR']['LHR'], 0)
+        self.assertEqual(matrix['distances']['JFK']['JFK'], 0)
+
+        # Check symmetry
+        self.assertEqual(
+            matrix['distances']['SIN']['LHR'],
+            matrix['distances']['LHR']['SIN']
+        )
+        self.assertEqual(
+            matrix['distances']['SIN']['JFK'],
+            matrix['distances']['JFK']['SIN']
+        )
+
+        # Check reasonable distances
+        self.assertGreater(matrix['distances']['SIN']['LHR'], 5000)
+        self.assertGreater(matrix['distances']['LHR']['JFK'], 3000)
+
+    def test_calculate_distance_matrix_invalid_codes(self):
+        """Test distance matrix with invalid codes (invalid codes are silently skipped)"""
+        matrix = airport_data.calculate_distance_matrix(['SIN', 'INVALID'])
+        # Only valid airports should be in the result
+        self.assertEqual(len(matrix['airports']), 1)
+
+    def test_find_nearest_airport(self):
+        """Test finding nearest airport to coordinates"""
+        nearest = airport_data.find_nearest_airport(1.35019, 103.994003)
+        self.assertIsNotNone(nearest)
+        self.assertIn('distance', nearest)
+        self.assertEqual(nearest['iata'], 'SIN')
+        self.assertLess(nearest['distance'], 2)  # Very close to Changi
+
+    def test_find_nearest_airport_with_type_filter(self):
+        """Test finding nearest airport with type filter"""
+        nearest = airport_data.find_nearest_airport(51.5074, -0.1278, {
+            'type': 'large_airport'
+        })
+        self.assertIsNotNone(nearest)
+        self.assertEqual(nearest['type'], 'large_airport')
+        self.assertIn('distance', nearest)
+
+    def test_find_nearest_airport_with_multiple_filters(self):
+        """Test finding nearest airport with type and country filters"""
+        nearest = airport_data.find_nearest_airport(40.7128, -74.0060, {
+            'type': 'large_airport',
+            'country_code': 'US'
+        })
+        self.assertIsNotNone(nearest)
+        self.assertIn('distance', nearest)
+        self.assertEqual(nearest['type'], 'large_airport')
+        self.assertEqual(nearest['country_code'], 'US')
+
+    # ========================================================================
+    # Validation & Utilities Tests
+    # ========================================================================
+
+    def test_validate_iata_code_valid(self):
+        """Test validation of valid IATA codes"""
+        self.assertTrue(airport_data.validate_iata_code('SIN'))
+        self.assertTrue(airport_data.validate_iata_code('LHR'))
+        self.assertTrue(airport_data.validate_iata_code('JFK'))
+
+    def test_validate_iata_code_invalid(self):
+        """Test validation of non-existent IATA codes"""
+        self.assertFalse(airport_data.validate_iata_code('XYZ'))
+        self.assertFalse(airport_data.validate_iata_code('ZZZ'))
+
+    def test_validate_iata_code_bad_format(self):
+        """Test validation of incorrectly formatted IATA codes"""
+        self.assertFalse(airport_data.validate_iata_code('ABCD'))  # Too long
+        self.assertFalse(airport_data.validate_iata_code('AB'))    # Too short
+        self.assertFalse(airport_data.validate_iata_code(''))      # Empty
+        # Note: 'abc' returns True in Python because input is uppercased before validation
+
+    def test_validate_icao_code_valid(self):
+        """Test validation of valid ICAO codes"""
+        self.assertTrue(airport_data.validate_icao_code('WSSS'))
+        self.assertTrue(airport_data.validate_icao_code('EGLL'))
+        self.assertTrue(airport_data.validate_icao_code('KJFK'))
+
+    def test_validate_icao_code_invalid(self):
+        """Test validation of non-existent ICAO codes"""
+        self.assertFalse(airport_data.validate_icao_code('XXXX'))
+        self.assertFalse(airport_data.validate_icao_code('ZZZ0'))
+
+    def test_validate_icao_code_bad_format(self):
+        """Test validation of incorrectly formatted ICAO codes"""
+        self.assertFalse(airport_data.validate_icao_code('ABC'))
+        self.assertFalse(airport_data.validate_icao_code('ABCDE'))
+        self.assertFalse(airport_data.validate_icao_code('abcd'))
+        self.assertFalse(airport_data.validate_icao_code(''))
+
+    def test_get_airport_count_total(self):
+        """Test total airport count"""
+        count = airport_data.get_airport_count()
+        self.assertGreater(count, 5000)
+
+    def test_get_airport_count_with_type_filter(self):
+        """Test count with type filter"""
+        large_count = airport_data.get_airport_count({'type': 'large_airport'})
+        total_count = airport_data.get_airport_count()
+        self.assertGreater(large_count, 0)
+        self.assertLess(large_count, total_count)
+
+    def test_get_airport_count_with_country_filter(self):
+        """Test count with country filter"""
+        us_count = airport_data.get_airport_count({'country_code': 'US'})
+        self.assertGreater(us_count, 1000)
+
+    def test_get_airport_count_with_multiple_filters(self):
+        """Test count with multiple filters"""
+        count = airport_data.get_airport_count({
+            'country_code': 'US',
+            'type': 'large_airport'
+        })
+        self.assertGreater(count, 0)
+        self.assertLess(count, 200)
+
+    def test_is_airport_operational_true(self):
+        """Test operational airports"""
+        self.assertTrue(airport_data.is_airport_operational('SIN'))
+        self.assertTrue(airport_data.is_airport_operational('LHR'))
+        self.assertTrue(airport_data.is_airport_operational('JFK'))
+
+    def test_is_airport_operational_icao(self):
+        """Test operational check with ICAO codes"""
+        self.assertTrue(airport_data.is_airport_operational('WSSS'))
+
+    def test_is_airport_operational_invalid(self):
+        """Test operational check with invalid code returns False"""
+        self.assertFalse(airport_data.is_airport_operational('INVALID'))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
