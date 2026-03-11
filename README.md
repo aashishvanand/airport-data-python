@@ -1,4 +1,4 @@
-# airports-py
+# airport-data-python
 
 A comprehensive Python library providing easy retrieval of airport data based on IATA, ICAO, city codes, country codes, and continents. Ideal for developers building applications related to aviation, travel, and geography in Python.
 
@@ -443,7 +443,7 @@ To test the library locally:
 1. Navigate to the root of the project:
 
 ```bash
-cd path_to_airports-py
+cd path_to_airport-data-python
 ```
 
 2. Run the tests using:
@@ -493,12 +493,12 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history and release notes.
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/aashishvanand/airports-py.git
+git clone https://github.com/aashishvanand/airport-data-python.git
 ```
 
 2. **Change into the cloned directory:**
 ```bash
-cd airports-py
+cd airport-data-python
 ```
 
 3. **Create a virtual environment (recommended):**
@@ -690,4 +690,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/aashishvanand/airports-py/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/aashishvanand/airport-data-python/issues).
