@@ -5,7 +5,7 @@ with open("README.md", encoding="utf-8") as f:
 
 setup(
     name="airports-py",
-    version="3.0.0",
+    version="3.1.0",
     packages=find_packages(),
     install_requires=[],
     author="Aashish Vivekanand",
