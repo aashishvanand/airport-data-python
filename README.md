@@ -686,8 +686,10 @@ This library uses a comprehensive dataset of worldwide airports with regular upd
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/aashishvanand/airport-data-python/issues).
+Contributions, issues, and feature requests are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on how to contribute, run tests, and publish new versions.
+
+Feel free to check the [issues page](https://github.com/aashishvanand/airport-data-python/issues).

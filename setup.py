@@ -10,6 +10,7 @@ setup(
     install_requires=[],
     author="Aashish Vivekanand",
     author_email="aashishvanand@gmail.com",
+    license="CC-BY-4.0",
     description="A comprehensive library providing easy retrieval of airport data based on IATA, ICAO, city codes, country codes, and continents. Features geographic search, distance calculation, timezone lookup, and external links integration.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -34,7 +35,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
-        "License :: OSI Approved :: MIT License",
+        "License :: Other/Proprietary License",
         "Operating System :: OS Independent",
     ],
     keywords=[
